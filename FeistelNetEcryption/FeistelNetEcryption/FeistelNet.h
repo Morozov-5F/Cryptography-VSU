@@ -14,16 +14,16 @@
 
 #define BITS(x) (sizeof(x) * CHAR_BIT)
 
-#define ROL(x, y) (((x) << ((y) % BITS(x))) | ((x) >> (BITS(x) - (y % BITS(x))) % BITS(x)))
-#define ROR(x, y) (((x) >> ((y) % BITS(x))) | ((x) << (BITS(x) - (y % BITS(x))) % BITS(x)))
+#define ROL(x, y) (uint16_t)(((x) << ((y) % BITS(x))) | ((x) >> (BITS(x) - (y % BITS(x))) % BITS(x)))
+#define ROR(x, y) (uint16_t)(((x) >> ((y) % BITS(x))) | ((x) << (BITS(x) - (y % BITS(x))) % BITS(x)))
 
 typedef struct feist_block_s feist_block_t;
 typedef struct feist_ctx_s   feist_ctx_t;
 
-typedef uint64_t (*feist_keygen_cb)(uint64_t, size_t);
-typedef uint64_t (*feist_round_fn_cb)(uint64_t, uint64_t, uint64_t, uint64_t);
+typedef uint16_t (*feist_keygen_cb)(uint16_t, size_t);
+typedef uint16_t (*feist_round_fn_cb)(uint16_t, uint16_t, uint16_t, uint16_t);
 
-feist_ctx_t * feist_init(size_t rounds, uint64_t init_key,
+feist_ctx_t * feist_init(size_t rounds, uint16_t init_key,
                          feist_keygen_cb key_generator_cb,
                          feist_round_fn_cb round_fn_cb);
 
