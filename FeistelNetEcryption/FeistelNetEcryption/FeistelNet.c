@@ -32,6 +32,7 @@ struct feist_block_s
 
 struct feist_ctx_s
 {
+    feist_block_t     fnc_cbc_sequence;
     uint16_t        * fnc_keys;
     feist_keygen_cb   fnc_key_generator;
     feist_round_fn_cb fnc_round_fn;
@@ -87,6 +88,11 @@ feist_ctx_t * feist_init(size_t rounds, uint16_t init_key,
         round_fn_cb = s_feist_default_round_fn;
     }
     context->fnc_round_fn = round_fn_cb;
+    /* Generate random CBC sequence */
+    context->fnc_cbc_sequence.fnb_sub_1 = rand();
+    context->fnc_cbc_sequence.fnb_sub_2 = rand();
+    context->fnc_cbc_sequence.fnb_sub_3 = rand();
+    context->fnc_cbc_sequence.fnb_sub_4 = rand();
     
     return context;
 }
@@ -99,6 +105,7 @@ char * feist_encrypt(feist_ctx_t * ctx, const char message[],
     size_t j = 0;
     size_t new_message_len = 0;
     size_t blocks = 0;
+    feist_block_t to_xor;
     
     assert(NULL != ctx);
     assert(NULL != message);
@@ -111,27 +118,33 @@ char * feist_encrypt(feist_ctx_t * ctx, const char message[],
     encr_message = calloc(blocks, sizeof(feist_block_t));
     memcpy((uint8_t *)encr_message, message, new_message_len);
     
-    for (i = 0; i < ctx->fnc_rounds; ++i)
+    to_xor = ctx->fnc_cbc_sequence;
+
+    for (j = 0; j < blocks; ++j)
     {
-        for (j = 0; j < blocks; ++j)
+        feist_block_t current_block;
+        
+        encr_message[j].fnb_sub_1 ^= to_xor.fnb_sub_1;
+        encr_message[j].fnb_sub_2 ^= to_xor.fnb_sub_2;
+        encr_message[j].fnb_sub_3 ^= to_xor.fnb_sub_3;
+        encr_message[j].fnb_sub_4 ^= to_xor.fnb_sub_4;
+        
+        for (i = 0; i < ctx->fnc_rounds; ++i)
         {
-            feist_block_t current_block = encr_message[j];
-            
+            current_block = encr_message[j];
             encr_message[j].fnb_sub_1 = current_block.fnb_sub_2;
             encr_message[j].fnb_sub_2 = current_block.fnb_sub_3;
             encr_message[j].fnb_sub_3 = current_block.fnb_sub_4 ^ ctx->fnc_round_fn(current_block.fnb_sub_1, current_block.fnb_sub_2, current_block.fnb_sub_3, ctx->fnc_keys[i]);
             encr_message[j].fnb_sub_4 = current_block.fnb_sub_1;
         }
-    }
-
-    for (j = 0; j < blocks; ++j)
-    {
-        feist_block_t current_block = encr_message[j];
         
+        current_block = encr_message[j];
         encr_message[j].fnb_sub_1 = current_block.fnb_sub_4;
         encr_message[j].fnb_sub_2 = current_block.fnb_sub_1;
         encr_message[j].fnb_sub_3 = current_block.fnb_sub_2;
         encr_message[j].fnb_sub_4 = current_block.fnb_sub_3;
+        
+        to_xor = encr_message[j];
     }
     
     *message_len = new_message_len;
@@ -146,6 +159,8 @@ char * feist_decrypt(feist_ctx_t * ctx, const char message[],
     size_t j = 0;
     size_t new_message_len = 0;
     size_t blocks = 0;
+    feist_block_t to_xor;
+    feist_block_t to_xor_prev;
     
     assert(NULL != ctx);
     assert(NULL != message);
@@ -158,27 +173,30 @@ char * feist_decrypt(feist_ctx_t * ctx, const char message[],
     encr_message = calloc(blocks, sizeof(feist_block_t));
     memcpy((uint8_t *)encr_message, message, new_message_len);
     
-    for (i = ctx->fnc_rounds; i-- != 0;)
+    to_xor = ctx->fnc_cbc_sequence;
+    for (j = 0; j < blocks; ++j)
     {
-        for (j = 0; j < blocks; ++j)
+        feist_block_t current_block;
+        
+        to_xor_prev = encr_message[j];
+        
+        for (i = ctx->fnc_rounds; i--> 0;)
         {
-            feist_block_t current_block = encr_message[j];
-
+            current_block = encr_message[j];
             encr_message[j].fnb_sub_1 = current_block.fnb_sub_4 ^ ctx->fnc_round_fn(current_block.fnb_sub_1, current_block.fnb_sub_2, current_block.fnb_sub_3, ctx->fnc_keys[i]);
             encr_message[j].fnb_sub_2 = current_block.fnb_sub_1;
             encr_message[j].fnb_sub_3 = current_block.fnb_sub_2;
             encr_message[j].fnb_sub_4 = current_block.fnb_sub_3;
         }
-    }
-
-    for (j = 0; j < blocks; ++j)
-    {
-        feist_block_t current_block = encr_message[j];
         
-        encr_message[j].fnb_sub_1 = current_block.fnb_sub_2;
-        encr_message[j].fnb_sub_2 = current_block.fnb_sub_3;
-        encr_message[j].fnb_sub_3 = current_block.fnb_sub_4;
-        encr_message[j].fnb_sub_4 = current_block.fnb_sub_1;
+        current_block = encr_message[j];
+        
+        encr_message[j].fnb_sub_1 = current_block.fnb_sub_2 ^ to_xor.fnb_sub_1;
+        encr_message[j].fnb_sub_2 = current_block.fnb_sub_3 ^ to_xor.fnb_sub_2;
+        encr_message[j].fnb_sub_3 = current_block.fnb_sub_4 ^ to_xor.fnb_sub_3;
+        encr_message[j].fnb_sub_4 = current_block.fnb_sub_1 ^ to_xor.fnb_sub_4;
+        
+        to_xor = to_xor_prev;
     }
     
     *message_len = new_message_len;
