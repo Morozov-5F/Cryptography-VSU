@@ -34,14 +34,28 @@ rand_ctx_t * rand_init(double seed, double param)
     return ctx;
 }
 
+void rand_reset(rand_ctx_t * rand_ctx)
+{
+    assert(NULL != rand_ctx);
+    
+    rand_ctx->rctx_prev_val = rand_ctx->rctx_seed;
+}
+
+void rand_deinit(rand_ctx_t * rand_ctx)
+{
+    free(rand_ctx);
+}
+
 double rand_next(rand_ctx_t * ctx)
 {
-    double integer_part = 0;
     double next         = 0;
+    double val          = 0;
     
     assert(NULL != ctx);
     
-    next = modf(ctx->rctx_prev_val * ctx->rctx_param + M_PI, &integer_part);
+    val = ctx->rctx_prev_val * ctx->rctx_param + M_PI;
+    
+    next = val - (int)(val);
     ctx->rctx_prev_val = next;
     
     return next;

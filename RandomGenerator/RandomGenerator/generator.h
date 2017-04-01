@@ -17,6 +17,10 @@ typedef struct rand_ctx_s rand_ctx_t;
 
 rand_ctx_t * rand_init(double seed, double param);
 
-double rand_next(rand_ctx_t * rand_ctx_t);
+void rand_reset(rand_ctx_t * rand_ctx);
+
+void rand_deinit(rand_ctx_t * rand_ctx);
+
+double rand_next(rand_ctx_t * rand_ctx);
 
 #endif /* GENERATOR_H */
